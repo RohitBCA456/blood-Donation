@@ -98,8 +98,5 @@ The Blood Donation Backend is a simple project built using Node.js, Express, and
    ```
 5. Create a pull request.
 
-## License
-This project is licensed under the MIT License. See the LICENSE file for details.
-
 ---
 Feel free to contribute and enhance the Blood Donation Backend project!
