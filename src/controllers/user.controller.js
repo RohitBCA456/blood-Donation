@@ -126,7 +126,7 @@ const changePassword = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "password changed successfully"));
 });
 const requestDonor = asyncHandler(async (req, res) => {
-  const { Name, bloodgroup, location, hospital, contact } = req.body;
+  const { Name, bloodgroup, location, hospital, contact, district } = req.body;
   if (
     [Name, bloodgroup, location, hospital, contact].some(
       (field) => field.trim() === ""
@@ -134,14 +134,15 @@ const requestDonor = asyncHandler(async (req, res) => {
   ) {
     throw new ApiError(4004, "all fields are required");
   }
+
   console.log({ Name, bloodgroup, location, hospital, contact });
   const donors = await User.find({
     role: "donor",
     blood_group: bloodgroup,
-    location: {
-      $regex: location,
-      $options: "i",
-    },
+    $and: [
+      { location: { $regex: location, $option: "i" } },
+      { district: { $regex: district, $option: "i" } },
+    ],
   });
   console.log(donors);
   if (donors.length === 0) {
@@ -150,7 +151,7 @@ const requestDonor = asyncHandler(async (req, res) => {
   for (const donor of donors) {
     await sendSms(
       donor.contact,
-      `Hello ${donor.name}, ${Name} needs your help. Please contact ${contact} for more information`
+      `Hello ${donor.name}, ${Name} needs your help. Please contact ${contact} for more information.`
     );
   }
 });
