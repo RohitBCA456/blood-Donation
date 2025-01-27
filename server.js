@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { connectDB } from "./src/db/index.js";
 import { app } from "./app.js";
 dotenv.config({ path: ".env" });
+import { httpServer } from "./app.js";
 await connectDB()
   .then(() => {
     app.on("error", (error) => {
@@ -17,3 +18,8 @@ await connectDB()
   .catch((error) => {
     console.error("MongoDB connection failed:", error.message);
   });
+
+const PORT = 3000;
+httpServer.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});

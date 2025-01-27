@@ -5,12 +5,27 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import JWT from "jsonwebtoken";
 import { sendSms } from "../utils/sms.js";
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password, role, blood_group, location, contact } =
-    req.body;
+  const {
+    name,
+    email,
+    password,
+    role,
+    blood_group,
+    location,
+    district,
+    contact,
+  } = req.body;
   if (
-    [name, email, password, role, blood_group, location, contact].some(
-      (field) => field?.trim() === ""
-    )
+    [
+      name,
+      email,
+      password,
+      role,
+      blood_group,
+      location,
+      district,
+      contact,
+    ].some((field) => field?.trim() === "")
   ) {
     throw new ApiError(400, "every field is required");
   }
@@ -28,6 +43,7 @@ const registerUser = asyncHandler(async (req, res) => {
     role,
     blood_group,
     location,
+    district,
     contact,
   });
   const createdUser = await User.findById(user._id).select(
@@ -155,6 +171,7 @@ const requestDonor = asyncHandler(async (req, res) => {
     );
   }
 });
+
 export {
   registerUser,
   loginUser,
