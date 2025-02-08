@@ -10,13 +10,11 @@ const sendSms = async (donorPhoneNumber, message) => {
     const response = await client.messages.create({
       body: message,
       from: fromPhoneNumber,
-      to: donorPhoneNumber,
+      to: `+91${donorPhoneNumber}`,
     });
     console.log(`SMS sent to ${donorPhoneNumber}: ${response.sid}`);
-    process.exit(0);
   } catch (error) {
     console.error(`Failed to send SMS to ${donorPhoneNumber}: ${error.message}`);
-    process.exit(1);
   }
 };
 

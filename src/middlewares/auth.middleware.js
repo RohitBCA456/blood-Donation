@@ -5,17 +5,17 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 const JWTmiddleware = asyncHandler(async (req, _, next) => {
   try {
     const token =
-      req.cookies?.accessToken ||
+      req.cookies?.refreshToken ||
       req.header("Authorization")?.replace("Bearer", "");
+      console.log(token);
     if (!token) {
       throw new ApiError(401, "Invalid token");
     }
-    const decodeToken = JWT.verify(token, process.env.ACCESS_JWT_SECRET);
+    const decodeToken = JWT.verify(token, process.env.REFRESH_JWT_SECRET);
     console.log(decodeToken.id)
     const user = await User.findById(decodeToken.id).select(
       "-password -refreshToken"
     );
-    console.log(user);
     if (!user) {
       throw new ApiError(401, "Invalid access Token");
     }

@@ -4,6 +4,7 @@ import { User } from "../models/user.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import JWT from "jsonwebtoken";
 import { sendSms } from "../utils/sms.js";
+import path, { resolve } from "path";
 const registerUser = asyncHandler(async (req, res) => {
   const {
     name,
@@ -71,17 +72,15 @@ const loginUser = asyncHandler(async (req, res) => {
   if (!isPasswordValid) {
     throw new ApiError(400, "enter a valid password");
   }
-  const accessToken = await user.generateAccessToken();
   const refreshToken = await user.generateRefreshToken();
   user.refreshToken = refreshToken;
   user.save({ validateBeforeSave: false });
   const loginUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
-  const options = { httpOnly: true, secure: true };
+  const options = { httpOnly: true, secure: true, sameSite: "None", path: "/" };
   return res
     .status(200)
-    .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
     .json(new ApiResponse(200, loginUser, "user Logged in successfully"));
 });
@@ -99,34 +98,6 @@ const logoutUser = asyncHandler(async (req, res) => {
     .clearCookie("refreshToken", options)
     .json(new ApiResponse(200, {}, "user Logged out successfully"));
 });
-const refreshAccessToken = asyncHandler(async (req, res) => {
-  const token = req.cookies.refreshToken || req.body.refreshToken;
-  if (!token) {
-    throw new ApiError(401, "Invalid refresh token");
-  }
-  const decodedToken = JWT.verify(token, process.env.REFRESH_JWT_SECRET);
-  const user = await User.findById(decodedToken.id);
-  if (!user) {
-    throw new ApiError(404, "User not found");
-  }
-  if (token !== user?.refreshToken) {
-    throw new ApiError(404, "Refresh token not found");
-  }
-  const accessToken = user.generateAccessToken();
-  const newRefreshToken = user.generateRefreshToken();
-  user.refreshToken = newRefreshToken;
-  user.save({ validateBeforeSave: false });
-
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
-  return res
-    .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", newRefreshToken, options)
-    .json(200, {}, "Access token refresh successfully");
-});
 
 const changePassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
@@ -142,41 +113,67 @@ const changePassword = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "password changed successfully"));
 });
 const requestDonor = asyncHandler(async (req, res) => {
-  const { Name, bloodgroup, location, hospital, contact, district } = req.body;
+  const { name, bloodgroup, location, hospital, contact, district } = req.body;
+  console.log(req.body);
   if (
-    [Name, bloodgroup, location, hospital, contact].some(
-      (field) => field.trim() === ""
+    [name, bloodgroup, location, hospital, contact].some(
+      (field) => field?.trim() === ""
     )
   ) {
     throw new ApiError(4004, "all fields are required");
   }
-
-  console.log({ Name, bloodgroup, location, hospital, contact });
   const donors = await User.find({
     role: "donor",
     blood_group: bloodgroup,
-    $and: [
-      { location: { $regex: location, $option: "i" } },
-      { district: { $regex: district, $option: "i" } },
+    $or: [
+      { location: { $regex: String(location), $options: "i" } },
+      { district: { $regex: String(district), $options: "i" } },
     ],
+    _id: { $ne: req.user._id },
   });
-  console.log(donors);
+  const donorIds = donors.map((donor) => donor._id);
+
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  user.requestedDonors = donorIds;
+
+  await user.save({ validateBeforeSave: false });
+
   if (donors.length === 0) {
     throw new ApiError(404, "No donor found");
   }
   for (const donor of donors) {
     await sendSms(
       donor.contact,
-      `Hello ${donor.name}, ${Name} needs your help. Please contact ${contact} for more information.`
+      `Hello ${donor.name}, ${name} needs your help. Please contact ${contact} for more information.`
     );
+    res.status(200).json({
+      message: "Request sent successfully",
+    });
   }
+});
+
+const seeDonors = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  const donors = user.requestedDonors;
+  if (!donors) {
+    return res.status(404).json({ message: "No donors found" });
+  }
+  const donor = await User.find({ _id: { $in: donors } });
+  return res.status(200).json({ donors: donor });
 });
 
 export {
   registerUser,
   loginUser,
   logoutUser,
-  refreshAccessToken,
   changePassword,
   requestDonor,
+  seeDonors,
 };

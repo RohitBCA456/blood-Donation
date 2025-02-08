@@ -20,7 +20,7 @@ const userSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["donor", "recipient"],
+      enum: ["donor", "receiver"],
       default: "donor",
     },
     blood_group: {
@@ -49,6 +49,12 @@ const userSchema = new Schema(
     refreshToken: {
       type: String,
     },
+    requestedDonors: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );
@@ -61,25 +67,10 @@ userSchema.pre("save", async function (next) {
   next();
 });
 userSchema.methods.isPasswordCorrect = async function (password) {
-  console.log(password);
   const isMatch = await bcrypt.compare(password, this.password);
   return isMatch;
 };
 
-userSchema.methods.generateAccessToken = function () {
-  return JWT.sign(
-    {
-      id: this._id,
-      name: this.name,
-      email: this.email,
-      role: this.role,
-      blood_group: this.blood_group,
-      availability: this.availability,
-    },
-    process.env.ACCESS_JWT_SECRET,
-    { expiresIn: "1d" }
-  );
-};
 userSchema.methods.generateRefreshToken = function () {
   return JWT.sign(
     {
