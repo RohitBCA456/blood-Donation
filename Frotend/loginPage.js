@@ -7,7 +7,7 @@ form.addEventListener("submit", async (event) => {
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
 
-    const response = await fetch("http://localhost:8000/api/v2/users/login", {
+    const response = await fetch("https://blood-donation-8nn5.vercel.app/v2/users/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

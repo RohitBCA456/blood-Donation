@@ -1,6 +1,6 @@
 async function logout() {
           try {
-                    const response = await fetch('http://localhost:8000/api/v2/users/logout', {
+                    const response = await fetch('https://blood-donation-8nn5.vercel.app/api/v2/users/logout', {
                               method: 'POST',
                               credentials: 'include'
                     });

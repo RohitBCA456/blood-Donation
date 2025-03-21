@@ -3,7 +3,7 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     const formData = new FormData(form);
-    const response = await fetch("http://localhost:8000/api/v2/users/request", {
+    const response = await fetch("https://blood-donation-8nn5.vercel.app/v2/users/request", {
       method: "POST",
       body: formData,
       credentials: "include",
