@@ -2,9 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { User } from "../models/user.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import JWT from "jsonwebtoken";
 import { sendSms } from "../utils/sms.js";
-import path, { resolve } from "path";
 const registerUser = asyncHandler(async (req, res) => {
   const {
     name,
@@ -101,6 +99,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
 const changePassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
+  console.log(req.body);
   const user = await User.findById(req.user._id);
   const isPasswordValid = await user.isPasswordCorrect(oldPassword);
   if (!isPasswordValid) {
