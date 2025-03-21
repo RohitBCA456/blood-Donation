@@ -4,7 +4,7 @@ import cookieParser from "cookie-parser";
 const app = express();
 app.use(
   cors({
-    origin: "https://unrivaled-crostata-e15cee.netlify.app",
+    origin: "https://blooddonationdib.netlify.app",
     credentials: true,
   })
 );
