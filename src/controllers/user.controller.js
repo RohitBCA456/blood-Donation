@@ -97,63 +97,83 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "user Logged out successfully"));
 });
 
-const changePassword = asyncHandler(async (req, res) => {
-  const { oldPassword, newPassword } = req.body;
-  console.log(req.body);
-  const user = await User.findById(req.user._id);
-  const isPasswordValid = await user.isPasswordCorrect(oldPassword);
-  if (!isPasswordValid) {
-    throw new ApiError(400, "Invalid oldPassword");
+const changePassword = async (req, res) => {
+  try {
+    const { old_password, new_password } = req.body;
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const isMatch = await user.isPasswordCorrect(old_password);
+
+    if (!isMatch) {
+      return res.status(400).json({ message: "Old password is incorrect." });
+    }
+
+    user.password = new_password;
+    await user.save();
+
+    res.status(200).json({ message: "Password changed successfully." });
+  } catch (error) {
+    console.error("Error changing password:", error);
+    res.status(500).json({ message: "Server error. Please try again." });
   }
-  user.password = newPassword;
-  await user.save({ validateBeforeSave: false });
-  return res
-    .status(200)
-    .json(new ApiResponse(200, {}, "password changed successfully"));
-});
+};
+
 const requestDonor = asyncHandler(async (req, res) => {
   const { name, bloodgroup, location, hospital, contact, district } = req.body;
   console.log(req.body);
+
   if (
     [name, bloodgroup, location, hospital, contact].some(
-      (field) => field?.trim() === ""
+      (field) => !field || field.trim() === ""
     )
   ) {
-    throw new ApiError(4004, "all fields are required");
+    throw new ApiError(4004, "All fields are required");
   }
+
+  // Finding donors with stricter filtering
   const donors = await User.find({
     role: "donor",
     blood_group: bloodgroup,
+    availability: true,
     $or: [
-      { location: { $regex: String(location), $options: "i" } },
-      { district: { $regex: String(district), $options: "i" } },
+      { location: { $regex: new RegExp(location, "i") } },
+      { district: { $regex: new RegExp(district, "i") } },
     ],
     _id: { $ne: req.user._id },
   });
-  const donorIds = donors.map((donor) => donor._id);
 
+  if (donors.length === 0) {
+    throw new ApiError(404, "No donor found");
+  }
+
+  const donorIds = donors.map((donor) => donor._id);
   const user = await User.findById(req.user._id);
 
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
+  
   user.requestedDonors = donorIds;
-
   await user.save({ validateBeforeSave: false });
 
-  if (donors.length === 0) {
-    throw new ApiError(404, "No donor found");
-  }
   for (const donor of donors) {
     await sendSms(
       donor.contact,
       `Hello ${donor.name}, ${name} needs your help. Please contact ${contact} for more information.`
     );
-    res.status(200).json({
-      message: "Request sent successfully",
-    });
   }
+
+  res.status(200).json({
+    message: "Request sent successfully",
+  });
 });
+
 
 const seeDonors = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);

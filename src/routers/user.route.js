@@ -18,6 +18,6 @@ router.route("/logout").post(JWTmiddleware, logoutUser);
 router
   .route("/change-password")
   .post(upload.none(), JWTmiddleware, changePassword);
-router.route("/request").post(JWTmiddleware, requestDonor);
+router.route("/request").post(upload.none(), JWTmiddleware, requestDonor);
 router.route("/donors").get(JWTmiddleware, seeDonors);
 export default router;

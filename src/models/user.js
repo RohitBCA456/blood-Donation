@@ -67,9 +67,12 @@ userSchema.pre("save", async function (next) {
   next();
 });
 userSchema.methods.isPasswordCorrect = async function (password) {
-  const isMatch = await bcrypt.compare(password, this.password);
-  return isMatch;
+  if (!this.password) {
+    throw new Error("Password not found for the user.");
+  }
+  return await bcrypt.compare(password, this.password);
 };
+
 
 userSchema.methods.generateRefreshToken = function () {
   return JWT.sign(

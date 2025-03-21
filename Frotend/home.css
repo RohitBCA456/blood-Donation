@@ -35,6 +35,7 @@ header {
 .header-btn:hover {
   background-color: #9a0007;
   transform: scale(1.05);
+  cursor: pointer;
 }
 
 /* Buttons */
