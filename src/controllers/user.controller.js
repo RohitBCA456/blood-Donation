@@ -89,7 +89,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     { $set: { refreshToken: undefined } },
     { new: true }
   );
-  const options = { httpOnly: true, secure: true };
+  const options = { httpOnly: true, secure: true, sameSite: "None", path: "/"};
   return res
     .status(200)
     .clearCookie("accessToken", options)
