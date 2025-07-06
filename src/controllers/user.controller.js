@@ -3,6 +3,8 @@ import { ApiError } from "../utils/apiError.js";
 import { User } from "../models/user.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { sendSms } from "../utils/sms.js";
+import axios from "axios";
+
 const registerUser = asyncHandler(async (req, res) => {
   const {
     name,
@@ -11,7 +13,6 @@ const registerUser = asyncHandler(async (req, res) => {
     role,
     blood_group,
     location,
-    district,
     contact,
   } = req.body;
   if (
@@ -22,7 +23,6 @@ const registerUser = asyncHandler(async (req, res) => {
       role,
       blood_group,
       location,
-      district,
       contact,
     ].some((field) => field?.trim() === "")
   ) {
@@ -42,7 +42,6 @@ const registerUser = asyncHandler(async (req, res) => {
     role,
     blood_group,
     location,
-    district,
     contact,
   });
   const createdUser = await User.findById(user._id).select(
@@ -89,7 +88,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     { $set: { refreshToken: undefined } },
     { new: true }
   );
-  const options = { httpOnly: true, secure: true, sameSite: "None", path: "/"};
+  const options = { httpOnly: true, secure: true, sameSite: "None", path: "/" };
   return res
     .status(200)
     .clearCookie("accessToken", options)
@@ -125,8 +124,7 @@ const changePassword = async (req, res) => {
 };
 
 const requestDonor = asyncHandler(async (req, res) => {
-  const { name, bloodgroup, location, hospital, contact, district } = req.body;
-  console.log(req.body);
+  const { name, bloodgroup, location, hospital, contact} = req.body;
 
   if (
     [name, bloodgroup, location, hospital, contact].some(
@@ -136,33 +134,57 @@ const requestDonor = asyncHandler(async (req, res) => {
     throw new ApiError(4004, "All fields are required");
   }
 
-  // Finding donors with stricter filtering
-  const donors = await User.find({
-    role: "donor",
-    blood_group: bloodgroup,
-    availability: true,
-    $or: [
-      { location: { $regex: new RegExp(location, "i") } },
-      { district: { $regex: new RegExp(district, "i") } },
-    ],
-    _id: { $ne: req.user._id },
-  });
-
-  if (donors.length === 0) {
-    throw new ApiError(404, "No donor found");
-  }
-
-  const donorIds = donors.map((donor) => donor._id);
   const user = await User.findById(req.user._id);
-
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
-  
+
+  // Step 1: Get all potential donors first
+  const potentialDonors = await User.find({
+    role: "donor",
+    blood_group: bloodgroup,
+    availability: true,
+    location: { $regex: new RegExp(location, "i") },
+    _id: { $ne: req.user._id },
+  });
+
+  const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
+  const origin = encodeURIComponent(location);
+
+  const nearbyDonors = [];
+
+  // Step 2: Check distance for each donor
+  for (const donor of potentialDonors) {
+    const destination = encodeURIComponent(donor.location);
+
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin}&destinations=${destination}&key=${googleApiKey}`;
+
+    try {
+      const response = await axios.get(url);
+      const distanceInMeters =
+        response.data.rows[0].elements[0].distance?.value || Infinity;
+      const distanceInKm = distanceInMeters / 1000;
+
+      if (distanceInKm <= 20) {
+        nearbyDonors.push(donor);
+      }
+    } catch (err) {
+      console.error(
+        `Error checking distance to donor ${donor._id}:`,
+        err.message
+      );
+    }
+  }
+
+  if (nearbyDonors.length === 0) {
+    throw new ApiError(404, "No donor found within 20 km");
+  }
+
+  const donorIds = nearbyDonors.map((d) => d._id);
   user.requestedDonors = donorIds;
   await user.save({ validateBeforeSave: false });
 
-  for (const donor of donors) {
+  for (const donor of nearbyDonors) {
     await sendSms(
       donor.contact,
       `Hello ${donor.name}, ${name} needs your help. Please contact ${contact} for more information.`
@@ -170,10 +192,9 @@ const requestDonor = asyncHandler(async (req, res) => {
   }
 
   res.status(200).json({
-    message: "Request sent successfully",
+    message: "Request sent to donors within 20 km",
   });
 });
-
 
 const seeDonors = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
